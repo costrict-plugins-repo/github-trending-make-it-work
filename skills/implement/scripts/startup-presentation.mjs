@@ -1,0 +1,315 @@
+#!/usr/bin/env node
+import { artifactResolve } from '../../../scripts/lib/artifact-path.mjs';
+// Skill-scoped hooks: verify assistant chat, never infer it from tool output.
+import { readFile } from '../../../scripts/lib/artifact-io.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { parseState } from './render-status.mjs';
+import { readinessMutationCommand } from './testing-readiness.mjs';
+import { prematureImplementation } from './implementation-guard.mjs';
+import { isPlanningActivityCall, planningActivityCheck, planningActivityHold } from './planning-activity.mjs';
+import { recordHookEvent } from './hook-feedback.mjs';
+import { feedbackEligible, feedbackHold, feedbackTerminalRow } from './feedback-handoff.mjs';
+import { runtimeObjects } from './runtime-output.mjs';
+import { readStartupConfirmation, saveStartupConfirmation, isConfirmationBoundary, hasDashboardLink as hasLink } from './startup-confirmation.mjs';
+
+export function startupResult(output) {
+  if (typeof output !== 'string') return null;
+  for (const value of runtimeObjects(output).reverse()) {
+    if (typeof value?.startup_message === 'string' && typeof value.state === 'string' &&
+        typeof value.dashboard === 'string' && value.state.endsWith('-state.md') &&
+        value.dashboard.endsWith('-status.html') &&
+        value.startup_message.startsWith('[Open implementation dashboard](')) return value;
+  }
+  return null;
+}
+
+export function startupProgress(events) {
+  let initialized = null;
+  let terminalFeedback = null;
+  let feedbackRun = null;
+  let initializationId = null;
+  let announced = false;
+  const bashCalls = new Set();
+  const agentCalls = new Map();
+  const agents = new Map();
+  const knownAgents = new Map();
+  const resumeCalls = new Map();
+  const seenResumes = new Set();
+  const tasks = new Map();
+  const taskCalls = new Map();
+  for (const event of events) {
+    // Task notifications are runtime events, not diagnostic request replays or
+    // agent-authored claims. A queued completion must close the wait immediately.
+    const runtimeNotification = event.type === 'user' && event.promptSource === 'system' &&
+      (event.origin?.kind === 'task-notification' || event.turnOrigin === 'task_notification');
+    const notification = event.type === 'queue-operation' && event.operation === 'enqueue' ? event.content : runtimeNotification
+      ? typeof event.message?.content === 'string' ? event.message.content
+        : event.message?.content?.filter(part => part.type === 'text').map(part => part.text).join('\n') : null;
+    if (typeof notification === 'string' && notification.startsWith('<task-notification>')) {
+      const id = notification.match(/<task-id>([^<]+)<\/task-id>/)?.[1];
+      const status = notification.match(/<status>([^<]+)<\/status>/)?.[1];
+      if (['completed', 'failed', 'killed', 'cancelled', 'stopped'].includes(status)) { agents.delete(id); tasks.delete(id); }
+    }
+    if (event.type === 'system' && event.subtype === 'task_notification' && ['completed', 'failed', 'killed', 'cancelled', 'stopped'].includes(event.status)) { agents.delete(event.task_id); tasks.delete(event.task_id); }
+    if (event.type === 'system' && event.subtype === 'task_updated' && ['completed', 'failed', 'killed', 'cancelled', 'stopped'].includes(event.patch?.status)) tasks.delete(event.task_id);
+    if (event.type === 'system' && event.subtype === 'background_tasks_changed' && Array.isArray(event.tasks)) {
+      for (const id of tasks.keys()) if (!event.tasks.some(task => task.task_id === id && !task.ambient)) tasks.delete(id);
+    }
+    if (!['assistant', 'user'].includes(event.type)) continue;
+    const role = event.message?.role ?? event.type;
+    const content = event.message?.content;
+    if (role === 'user' && !runtimeNotification && !event.isMeta && !event.isSynthetic && (typeof content === 'string' ||
+        Array.isArray(content) && !content.some((part) => part.type === 'tool_result'))) {
+      // Resume clears the announcement obligation, not pending terminal feedback
+      // or actual child lifetimes (a status question can arrive during a wait).
+      initialized = null;
+      terminalFeedback = null;
+      initializationId = null;
+      announced = false;
+      bashCalls.clear();
+    }
+    if (!Array.isArray(content)) continue;
+    for (const part of content) {
+      if (role === 'assistant' && part.type === 'tool_use' && part.name === 'Bash') bashCalls.add(part.id);
+      if (initialized && role === 'assistant' && part.type === 'tool_use' && ['Bash', 'Monitor', 'TaskStop', 'TaskOutput'].includes(part.name)) taskCalls.set(part.id, part.name);
+      if (role === 'user' && part.type === 'tool_result' && !part.is_error && taskCalls.has(part.tool_use_id)) {
+        const result = event.toolUseResult, tool = taskCalls.get(part.tool_use_id);
+        const id = tool === 'Bash' ? result?.backgroundTaskId : tool === 'Monitor' ? result?.taskId : null;
+        const launchedAt = Date.parse(event.timestamp);
+        if (typeof id === 'string' && id && Number.isFinite(launchedAt) && !result.interrupted && !result.backgroundEndsWithFinalResponse &&
+            (tool !== 'Monitor' || Number.isFinite(result.timeoutMs) && result.timeoutMs > 0 && !result.persistent)) {
+          // Older single-shot SDK CLIs exit after a Bash-only yield. A finite
+          // Monitor provides the wake-up source in that host instead.
+          const version = /^2\.1\.(\d+)$/.exec(event.version ?? '');
+          const needsMonitor = tool === 'Bash' && event.entrypoint === 'sdk-cli' && version && Number(version[1]) < 311;
+          tasks.set(id, { id, launchedAt, needsMonitor: Boolean(needsMonitor), ...(tool === 'Monitor' ? { expiresAt: launchedAt + result.timeoutMs } : {}) });
+        }
+        if (tool === 'TaskStop' && typeof result?.task_id === 'string') tasks.delete(result.task_id);
+        if (tool === 'TaskOutput' && ['completed', 'failed', 'killed', 'cancelled', 'stopped'].includes(result?.task?.status)) tasks.delete(result.task.task_id);
+      }
+      const parentRuntime = !event.isMeta && !event.isSynthetic && !event.isSidechain && !event.parent_tool_use_id && !event.parentToolUseId;
+      if ((initialized || terminalFeedback || feedbackRun) && parentRuntime && role === 'assistant' && part.type === 'tool_use' && part.name === 'SendMessage') {
+        resumeCalls.set(part.id, part.input?.to ?? part.input?.recipient);
+      }
+      if (parentRuntime && role === 'user' && part.type === 'tool_result' && resumeCalls.has(part.tool_use_id) && !seenResumes.has(part.tool_use_id)) {
+        seenResumes.add(part.tool_use_id);
+        const result = part.is_error ? null : event.toolUseResult;
+        const prior = knownAgents.get(result?.resumedAgentId);
+        // A resume never moves an earlier-phase launch into the current phase.
+        // Text, metadata journals, peer inventories and failed sends cannot create it.
+        if (result?.success === true && prior && resumeCalls.get(part.tool_use_id) === result.resumedAgentId &&
+            Number.isFinite(Date.parse(event.timestamp)) && Date.parse(event.timestamp) >= prior.launchedAt) {
+          agents.set(result.resumedAgentId, prior);
+        }
+      }
+      if ((initialized || terminalFeedback || feedbackRun) && role === 'assistant' && part.type === 'tool_use' && ['Agent', 'Task', 'ListAgents', 'TaskOutput'].includes(part.name)) {
+        agentCalls.set(part.id, part.name);
+      }
+      if (role === 'user' && part.type === 'tool_result' && !part.is_error && agentCalls.has(part.tool_use_id)) {
+        const result = event.toolUseResult;
+        if (['Agent', 'Task'].includes(agentCalls.get(part.tool_use_id)) && result?.isAsync === true && result.status === 'async_launched' && typeof result.agentId === 'string') {
+          agents.set(result.agentId, { id: result.agentId, launchedAt: Date.parse(event.timestamp) });
+          knownAgents.set(result.agentId, { id: result.agentId, launchedAt: Date.parse(event.timestamp) });
+        }
+        // A runtime inventory can invalidate stale launch evidence. Peers are
+        // deliberately excluded: only this session's delegated agents qualify.
+        const inventory = agentCalls.get(part.tool_use_id) === 'ListAgents' && Array.isArray(result?.sections)
+          ? result.sections.find((section) => section.kind === 'subagents') : null;
+        if (inventory && Array.isArray(inventory.rows)) {
+          for (const id of agents.keys()) {
+            if (!inventory.rows.some((row) => row.id === id && ['running', 'busy'].includes(row.status))) agents.delete(id);
+          }
+        }
+        const task = result?.task;
+        if (agentCalls.get(part.tool_use_id) === 'TaskOutput' && task && ['completed', 'failed', 'killed', 'cancelled', 'stopped'].includes(task.status)) agents.delete(task.task_id);
+      }
+      if (role === 'user' && part.type === 'tool_result' && !part.is_error && bashCalls.has(part.tool_use_id)) {
+        const output = typeof part.content === 'string' ? part.content :
+          Array.isArray(part.content) ? part.content.filter((item) => item.type === 'text').map((item) => item.text).join('\n') : '';
+        const result = startupResult(output);
+        if (result) {
+          initialized = result; feedbackRun = { state: result.state, runId: result.runId ?? result.fields?.start_time };
+          terminalFeedback = null; initializationId = part.tool_use_id; announced = false; agentCalls.clear(); agents.clear(); knownAgents.clear(); resumeCalls.clear(); seenResumes.clear(); tasks.clear(); taskCalls.clear();
+        }
+        for (const value of runtimeObjects(output)) {
+          const action = value.next_action;
+          if (action?.type === 'feedback' && typeof action.state === 'string' && path.isAbsolute(action.state) &&
+              action.runId === value.fields?.start_time) { terminalFeedback = action; feedbackRun = action; }
+          const context = value.feedbackContext;
+          if (context && typeof context.state === 'string' && path.isAbsolute(context.state) && Number.isFinite(Date.parse(context.runId))) feedbackRun = context;
+        }
+      }
+      if (initialized && role === 'assistant' && part.type === 'text' && hasLink(part.text ?? '', initialized.dashboard)) announced = true;
+    }
+  }
+  return { initialized, initializationId, terminalFeedback, feedbackRun, announced, agents: [...agents.values()], tasks: [...tasks.values()].filter(task => !task.expiresAt || task.expiresAt > Date.now()) };
+}
+
+export function pendingStartup(events) {
+  const { initialized, announced } = startupProgress(events);
+  return announced ? null : initialized;
+}
+
+async function continuationHold(initialized, toolCheck = false, agents = [], tasks = []) {
+  if (initialized?.continuation !== 'continue_context_check_without_user_reply') return {};
+  let state;
+  try {
+    state = parseState(await readFile(initialized.state, 'utf8'), initialized.state);
+  } catch (error) {
+    return { decision: 'block', reason: `Startup continuation could not verify the saved workflow state: ${error.message}. Inspect and repair the state or checkpoint a genuine blocker before ending the turn. Do not ask the user for a message merely to continue startup.` };
+  }
+  const violation = await prematureImplementation(initialized, state);
+  if (violation) return { decision: 'block', reason: violation };
+  if (toolCheck) return {};
+  const { fields } = state;
+  if (fields.status !== 'In Progress') return {};
+  const enteredPhase = state.audit.findLast((row) => row.to === fields.phase && row.from !== row.to)?.epoch;
+  // Yielding to a live child is not workflow completion. Preserve In Progress
+  // and all completion gates; a child from an earlier phase cannot release Stop.
+  if (['close-the-gaps', 'plan', 'write-tests', 'execute', 'lightweight', 'review', 'fix-plan'].includes(fields.phase) &&
+      [...agents, ...tasks.filter(task => !task.needsMonitor)].some((agent) => Number.isFinite(agent.launchedAt) && agent.launchedAt >= enteredPhase)) return {};
+  if (tasks.some(task => task.needsMonitor && task.launchedAt >= enteredPhase)) return { decision: 'block', reason: 'This older single-shot headless runtime cannot resume a Bash-only background wait. Start a finite Monitor for the existing command/output, then yield. Do not rerun the tests, poll in the parent, repeat waiting messages or pause the workflow merely to wait.' };
+  if (fields.phase !== 'context-check') return { decision: 'block', reason: `The workflow is still In Progress at ${fields.phase}. Continue its documented stage through independent review and the final package. If a genuine question or external blocker prevents continuation, save the documented pause or stop. Do not end an active run as completed or stop merely because its stages were skipped.` };
+  return { decision: 'block', reason: 'The dashboard link has been shared, but this fresh run is still in Context check with status In Progress. Continue Context check now in this same turn; do not repeat the link or ask the user to send another message. If a genuine question or blocker prevents continuation, save the documented pause or stop before reporting it.' };
+}
+
+function reminder(initialized) {
+  return `The implementation dashboard has been created, but its link still needs an ASSISTANT CHAT MESSAGE. Tool output does not send it. Before any further tool call, emit this exact clickable link in ordinary assistant text:\n\n${initialized.startup_message}\n\nSend it as a standalone assistant response with no tool calls. For a normal run the Stop hook will confirm the runtime assistant text and continue the workflow automatically; no user reply is needed. If the link has already streamed, finish the response without more tools instead of repeating it.\n\nThen continue Context check in this turn without waiting for user acknowledgment. For a pending offline refinement, keep its documented answer wait instead. Do not claim the link was already shared unless it appears in assistant chat.`;
+}
+
+function advisory(event, reason) {
+  return { hookSpecificOutput: { hookEventName: event, additionalContext: reason } };
+}
+
+async function observeHook(input, progress, events, output, kind = 'clear') {
+  if (!progress.initialized?.continuation) return output;
+  try {
+    const state = parseState(await readFile(progress.initialized.state, 'utf8'), progress.initialized.state);
+    if (feedbackEligible(state.fields)) return output;
+    if (input.hook_event_name === 'Stop' && kind === 'clear' && state.fields.status === 'In Progress' && progress.agents.length) kind = 'agent-wait';
+    if (input.hook_event_name === 'Stop' && kind === 'clear' && state.fields.status === 'In Progress' && progress.tasks.length) kind = 'task-wait';
+    await recordHookEvent({ statePath: progress.initialized.state, state, input, events, kind, agents: kind === 'task-wait' ? progress.tasks : progress.agents });
+    return output;
+  } catch {
+    // Observability must not change the hook's enforcement or workflow status.
+    return { ...output, systemMessage: 'Workflow hook feedback could not be recorded; retrospective evidence may be incomplete.' };
+  }
+}
+
+export async function startupHook(input) {
+  if (input.hook_event_name === 'PostToolUse' && input.tool_name === 'Bash' && !input.tool_response?.interrupted) {
+    const initialized = startupResult(input.tool_response?.stdout);
+    if (initialized) return { decision: 'block', reason: reminder(initialized) };
+  }
+  if (!['PreToolUse', 'PostToolUse', 'Stop'].includes(input.hook_event_name) || !input.transcript_path) return {};
+  let progress;
+  let events;
+  let confirmation;
+  let confirmationError;
+  // Chat may precede its buffered JSONL record. Allow a longer bounded flush
+  // before enforcing a missing announcement, without accepting tool-only links.
+  const attempts = input.hook_event_name === 'PostToolUse' ? 0 : 40;
+  let startupRetries = 0, planningDeadline = null;
+  while (true) {
+    const lines = (await readFile(input.transcript_path, 'utf8')).split('\n');
+    events = [];
+    for (let index = 0; index < lines.length; index += 1) {
+      if (!lines[index].trim()) continue;
+      try { events.push(JSON.parse(lines[index])); }
+      catch (error) { if (index !== lines.length - 1) throw error; } // partial append
+    }
+    progress = startupProgress(events);
+    if (progress.initialized) {
+      confirmation = await readStartupConfirmation(input, progress);
+      const runtimeLink = input.hook_event_name === 'Stop' && typeof input.last_assistant_message === 'string' &&
+        hasLink(input.last_assistant_message, progress.initialized.dashboard);
+      if (runtimeLink && !isConfirmationBoundary(input, confirmation)) {
+        try { confirmation = await saveStartupConfirmation(input, progress); }
+        catch { confirmationError = 'Startup text was confirmed, but its local receipt could not be saved; later hooks may need the transcript to catch up.'; }
+      }
+      if (runtimeLink || confirmation) progress.announced = true;
+    }
+    if (!progress.initialized) break;
+    if (!progress.announced) {
+      if (startupRetries >= attempts || planningDeadline !== null) break;
+      startupRetries += 1;
+      await delay(100);
+      continue;
+    }
+    if (input.hook_event_name === 'PreToolUse' && isPlanningActivityCall(input)) {
+      let state;
+      try { state = parseState(await readFile(progress.initialized.state, 'utf8'), progress.initialized.state); } catch { /* Preserve existing state-repair handling below. */ }
+      if (state && planningActivityCheck(input, events, state, progress.initialized.state).pendingChat) {
+        // Only a valid activity call with missing chat gets a short local wait.
+        // Re-read events AND state each time; never release from a stale snapshot.
+        planningDeadline ??= performance.now() + 1000;
+        const remaining = planningDeadline - performance.now();
+        if (remaining > 0) { await delay(Math.min(100, remaining)); continue; }
+      }
+    }
+    break;
+  }
+  const feedbackState = progress.feedbackRun?.state;
+  const deliveryOffer = input.tool_name === 'Bash' && /\bdeliver\.mjs["']?\s+offer\b/.test(input.tool_input?.command ?? '');
+  const collectOutcome = input.hook_event_name === 'PostToolUse' && ['Bash', 'Read'].includes(input.tool_name);
+  if (feedbackState && (collectOutcome || input.hook_event_name === 'Stop' || input.hook_event_name === 'PreToolUse' && (input.tool_name === 'AskUserQuestion' || deliveryOffer))) {
+    let state;
+    try { state = parseState(await readFile(feedbackState, 'utf8'), feedbackState); } catch { /* Existing state-repair handling below remains active. */ }
+    if (state && (!progress.feedbackRun.runId || progress.feedbackRun.runId === state.fields.start_time)) {
+      const terminal = feedbackTerminalRow(state.fields, state.audit);
+      const awaitingRetrospective = input.hook_event_name === 'Stop' && state.fields.status !== 'In Progress' &&
+        progress.agents.some(agent => Number.isFinite(agent.launchedAt) && agent.launchedAt >= terminal?.epoch);
+      if (awaitingRetrospective && feedbackEligible(state.fields)) return {};
+      if (!awaitingRetrospective) {
+        const feedback = await feedbackHold(input, feedbackState, state.fields, events);
+        if (feedback) return feedback;
+        if (feedbackEligible(state.fields)) return {};
+      }
+    }
+  }
+  if (!progress.initialized) return {};
+  if (!progress.announced) return observeHook(input, progress, events, input.hook_event_name === 'Stop'
+    ? { decision: 'block', reason: reminder(progress.initialized) }
+    : input.hook_event_name === 'PreToolUse'
+      ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reminder(progress.initialized) } }
+      : advisory(input.hook_event_name, reminder(progress.initialized)), 'missing-dashboard-link');
+  if (input.hook_event_name === 'PreToolUse') {
+    let state;
+    try { state = parseState(await readFile(progress.initialized.state, 'utf8'), progress.initialized.state); } catch { /* Existing state-repair handling remains available. */ }
+    const reason = state && planningActivityHold(input, events, state, progress.initialized.state);
+    if (reason) return observeHook(input, progress, events, { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: reason } }, 'active-stage');
+  }
+  if (input.hook_event_name === 'PreToolUse' && readinessMutationCommand(input)) {
+    let state;
+    try { state = parseState(await readFile(progress.initialized.state, 'utf8'), progress.initialized.state); } catch { /* Existing continuation handling keeps repair tools available. */ }
+    const entered = state?.audit.findLast((row) => row.to === state.fields.phase && row.from !== row.to)?.epoch;
+    if (state?.fields.testing_readiness_version === '1' && ['plan', 'fix-plan'].includes(state.fields.phase) &&
+        [...progress.agents, ...progress.tasks].some((agent) => Number.isFinite(agent.launchedAt) && agent.launchedAt >= entered)) {
+      return observeHook(input, progress, events, { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny',
+        permissionDecisionReason: 'Plan delegates or background tasks are still running. Wait for their actual handback before beginning or completing readiness, reconcile the report, then continue planning. Keep the run In Progress; a verified Plan wait is allowed.' } }, 'readiness-pending');
+    }
+  }
+  const hold = await continuationHold(progress.initialized, input.hook_event_name !== 'Stop', progress.agents, progress.tasks);
+  if (input.hook_event_name === 'Stop') {
+    const expectedBoundary = isConfirmationBoundary(input, confirmation) && hold.reason?.startsWith('The dashboard link has been shared');
+    const kind = !hold.reason || expectedBoundary ? 'clear' : hold.reason.startsWith('Application files changed') ? 'premature-implementation'
+      : hold.reason.startsWith('Startup continuation could not verify') ? 'state-unavailable' : 'active-stage';
+    const output = confirmationError ? { ...hold, systemMessage: confirmationError } : hold;
+    return observeHook(input, progress, events, output, kind);
+  }
+  // Keep recovery tools available; mutation is detected after execution, not rolled back.
+  return observeHook(input, progress, events, hold.reason ? advisory(input.hook_event_name, hold.reason) : {});
+}
+
+if (process.argv[1] && artifactResolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    let data = '';
+    for await (const chunk of process.stdin) data += chunk;
+    process.stdout.write(`${JSON.stringify(await startupHook(JSON.parse(data)))}\n`);
+  } catch (error) {
+    process.stderr.write(`Startup presentation check failed: ${error.message}\n`);
+    process.exitCode = 2;
+  }
+}

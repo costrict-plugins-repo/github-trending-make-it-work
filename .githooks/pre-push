@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Pushes must never launch paid model evaluations.
+set -euo pipefail
+echo 'pre-push: no paid evals. When the draft PR is otherwise ready, run:' >&2
+echo '  node evals/run-suite.mjs smoke --pr=NUMBER --ready' >&2
+echo 'After fixing failures, rerun only unresolved cases with --retry-failed.' >&2

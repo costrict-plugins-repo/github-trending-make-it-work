@@ -1,0 +1,422 @@
+{
+  "schemaVersion": 1,
+  "smoke": [
+    "feedback-on-session-problems",
+    "close-the-gaps-live-autopilot",
+    "deliver-no-package",
+    "drive-the-epic-autopilot",
+    "dts-fresh-tests",
+    "execute-full-pass",
+    "find-the-repos-happy-path",
+    "fresh-onboarding",
+    "implement-dashboard-autonomous-start",
+    "plan-the-work-happy-path",
+    "autopilot-bare",
+    "rr-full-pass",
+    "shape-the-epic-rich-input-autopilot",
+    "slice-the-epic-well-specified-epic-autopilot",
+    "assessment-sensitive",
+    "write-the-tests-standalone"
+  ],
+  "headless": [
+    "implement-worktree-workspace-preview",
+    "implement-worktree-branch-preview",
+    "implement-worktree-offer",
+    "close-the-gaps-live-autopilot",
+    "implement-repo-impact-scope",
+    "implement-repo-impact-missing",
+    "implement-planning-progress",
+    "feedback-session-admitted-skips",
+    "feedback-dashboard-html-clean",
+    "feedback-dashboard-html-contradictory",
+    "feedback-dashboard-html-noisy",
+    "feedback-dashboard-html-missing",
+    "review-workflow-obligations",
+    "feedback-on-session-terminal-fix",
+    "feedback-on-session-attribution",
+    "feedback-on-session-policy-loops",
+    "feedback-on-session-collection-gaps",
+    "feedback-collection-runtime-notes",
+    "feedback-on-session-evidence-limits",
+    "feedback-on-session-handoff",
+    "feedback-on-session-problems",
+    "feedback-on-session-clean",
+    "feedback-on-session-incomplete",
+    "close-the-gaps-mixed-sources",
+    "close-the-gaps-pm-followup",
+    "close-the-gaps-stale-recommendation",
+    "plan-facts-vendor-contract",
+    "plan-facts-prior-notes",
+    "plan-facts-boundary-conflict",
+    "plan-facts-boundary-supported",
+    "drive-the-epic-autopilot",
+    "drive-the-epic-review-gate",
+    "drive-the-epic-scoped-resume",
+    "drive-the-epic-jira-unavailable",
+    "close-the-gaps-slack-send-fallback",
+    "close-the-gaps-slack-send-resume",
+    "autopilot-bare",
+    "autopilot-full-info",
+    "dts-fresh-tests",
+    "dts-multi-repo",
+    "dts-no-tooling",
+    "dts-strategy-api-autopilot",
+    "dts-strategy-mixed-autopilot",
+    "dts-selected-layers",
+    "dts-coverage-only",
+    "dts-embedded-tests",
+    "dts-embedded-coverage-only",
+    "dts-index-refresh",
+    "execute-full-pass",
+    "execute-manual-policy",
+    "execute-resume-inline",
+    "execute-stop-at-gate",
+    "fresh-autopilot",
+    "fresh-onboarding",
+    "find-the-repos-happy-path",
+    "find-the-repos-evidence-drilldown",
+    "find-the-repos-catalog-workspace",
+    "find-the-repos-combined-intake",
+    "find-the-repos-confirm-pending",
+    "find-the-repos-large-workspace",
+    "find-the-repos-revise-report",
+    "implement-feedback-clean",
+    "implement-feedback-idempotent",
+    "implement-final-sync-map",
+    "implement-final-sync-partial-map",
+    "implement-feedback-nonminimal",
+    "implement-autopilot-full",
+    "implement-plan-agent-wait",
+    "implement-readiness-order",
+    "implement-dashboard-autonomous-start",
+    "implement-no-tooling",
+    "implement-existing-automation-no-strategy",
+    "implement-empty-strategy",
+    "implement-lightweight-run",
+    "implement-context-absent",
+    "implement-context-partial",
+    "implement-context-mandatory-missing",
+    "implement-workspace-approval",
+    "implement-repo-start-dependencies",
+    "implement-repo-start-local",
+    "implement-workspace-complete",
+    "implement-workspace-single-impact",
+    "implement-escalation",
+    "plan-visual-flow",
+    "plan-visual-simple",
+    "plan-visual-amend",
+    "plan-the-work-happy-path",
+    "plan-the-work-plan-collision",
+    "plan-the-work-with-tests",
+    "plan-the-work-planned-layer",
+    "plan-the-work-embedded-tests",
+    "plan-the-work-deferred-wiring",
+    "plan-the-work-safe-deferral",
+    "repair-path",
+    "rr-cross-repo",
+    "rr-full-fail",
+    "rr-full-pass",
+    "rr-scoped-explicit",
+    "rr-embedded-tests",
+    "rr-index-reuse",
+    "review-the-code-embedded-tests",
+    "review-the-code-plan-conflict",
+    "review-the-code-refined-authority",
+    "review-the-code-false-parity",
+    "review-the-code-shared-parity",
+    "shape-the-epic-rich-input-autopilot",
+    "shape-the-epic-technical-debt-outcomes",
+    "shape-the-epic-jira-full-description",
+    "shape-the-epic-technical-debt-sparse",
+    "shape-the-epic-discovery-interview",
+    "slice-the-epic-well-specified-epic-autopilot",
+    "slice-the-epic-ambiguous-epic-autopilot",
+    "slice-the-epic-interactive-files-only",
+    "slice-the-epic-jira-summary-comment-preparation",
+    "slice-the-epic-jira-native-link-plan",
+    "implement-switch-to-guided",
+    "implement-switch-to-autopilot",
+    "implement-resume-changed-autonomy",
+    "implement-publication-guided-approval",
+    "implement-publication-resume",
+    "implement-delivery-prepare",
+    "implement-final-approval-evidence",
+    "implement-delivery-decline",
+    "implement-delivery-stale",
+    "execute-diagnosis-first",
+    "execute-diagnosis-repeat",
+    "execute-diagnosis-unknown",
+    "implement-diagnosis-lightweight",
+    "plan-assumption-unsupported",
+    "plan-assumption-supported",
+    "plan-assumption-low-risk",
+    "drive-the-epic-uncertainty-unresolved",
+    "drive-the-epic-uncertainty-resolved",
+    "define-test-strategy-negative-control",
+    "implement-payment-feedback-e2e",
+    "review-verification-context",
+    "implement-fix-plan-boundary",
+    "implement-background-bash-wait",
+    "implement-background-monitor-wait",
+    "implement-refinement-inline-baseline",
+    "implement-refinement-worker-local",
+    "implement-refinement-worker-blocked",
+    "implement-refinement-worker-full",
+    "assessment-sensitive",
+    "assessment-inherited",
+    "assessment-ambiguous",
+    "assessment-inaccessible-pr",
+    "assessment-docs",
+    "assessment-pr-snapshot",
+    "assessment-partial-multi",
+    "write-the-tests-standalone",
+    "implement-branch-ticket-mismatch",
+    "implement-residual-risk-presentation",
+    "implement-residual-risk-low",
+    "implement-delegate-test-compromise",
+    "feedback-maintainer-followup-gaps",
+    "feedback-maintainer-followup-answered",
+    "feedback-maintainer-followup-reported"
+  ],
+  "workingDirectories": {
+    "implement-repo-start-dependencies": "connector-app",
+    "implement-repo-start-local": "connector-app"
+  },
+  "graderEvidenceFiles": {
+    "plan-visual-amend": {
+      "visual.md": [
+        ".eval-original-plan.md",
+        "make-it-work/VIS-1/VIS-1-spec.md",
+        "docs/review.md"
+      ]
+    },
+    "implement-final-approval-evidence": {
+      "evidence.md": [
+        "make-it-work/DEMO/DEMO-evidence.md",
+        "make-it-work/DEMO/DEMO-final-draft.json",
+        "make-it-work/DEMO/DEMO-final-package.md"
+      ]
+    },
+    "implement-delivery-prepare": {
+      "evidence-qualifications.md": [
+        "make-it-work/DEMO/DEMO-delivery-plan.md"
+      ]
+    },
+    "assessment-sensitive": {
+      "behavior.md": [
+        "make-it-work/ASSESS-1/ASSESS-1-change-assessment.md",
+        "make-it-work/ASSESS-1/ASSESS-1-change-assessment.json"
+      ]
+    },
+    "feedback-collection-runtime-notes": {
+      "collection-and-readback.md": [
+        "make-it-work/DEMO/workflow-feedback.md",
+        "session.txt"
+      ]
+    },
+    "implement-autopilot-full": {
+      "clause-assertions.md": [
+        "make-it-work/DEMO-101/DEMO-101-spec.md",
+        "make-it-work/DEMO-101/DEMO-101-plan.md",
+        "make-it-work/DEMO-101/DEMO-101-verification-v1.json",
+        "test/policy.test.js",
+        "src/policy.js"
+      ]
+    },
+    "dts-fresh-tests": {
+      "developer-report-and-layers.md": [
+        ".claude/testing/test-map.json",
+        ".claude/testing/TEST-MAP.md",
+        ".claude/skills/test-strategy/SKILL.md"
+      ],
+      "nonintrusive-map.md": [
+        "CLAUDE.md",
+        ".claude/skills/test-strategy/SKILL.md",
+        ".claude/testing/test-map.json"
+      ]
+    },
+    "drive-the-epic-uncertainty-unresolved": {
+      "uncertainty-handoff.md": [
+        "uncertainty-baseline.json"
+      ]
+    },
+    "drive-the-epic-uncertainty-resolved": {
+      "uncertainty-handoff.md": [
+        "uncertainty-baseline.json"
+      ]
+    },
+    "autopilot-full-info": {
+      "autopilot-log-content.md": [
+        "make-it-work/TASK-100/review-the-code-autopilot-log.jsonl"
+      ]
+    },
+    "implement-payment-feedback-e2e": {
+      "workflow-and-feedback.md": [
+        "make-it-work/DEMO-PAYMENT/DEMO-PAYMENT-spec.md",
+        "make-it-work/DEMO-PAYMENT/DEMO-PAYMENT-state.md",
+        "make-it-work/DEMO-PAYMENT/DEMO-PAYMENT-lightweight.md",
+        "make-it-work/DEMO-PAYMENT/DEMO-PAYMENT-review.md",
+        "make-it-work/DEMO-PAYMENT/DEMO-PAYMENT-final-package.md",
+        "make-it-work/DEMO-PAYMENT/workflow-feedback.md",
+        "src/sessionDetails.js",
+        "src/views.js",
+        ".claude/skills/test-strategy/SKILL.md"
+      ]
+    },
+    "review-verification-context": {
+      "context-and-security.md": [
+        "make-it-work/REVIEW-2/REVIEW-2-review.md",
+        "make-it-work/REVIEW-2/review-target.json",
+        "src/internalItems.js"
+      ]
+    },
+    "implement-no-tooling": {
+      "readiness-and-completion.md": [
+        "make-it-work/DEMO-102/DEMO-102-status.html"
+      ]
+    },
+    "implement-existing-automation-no-strategy": {
+      "completion.md": [
+        "make-it-work/DEMO-103/DEMO-103-status.html"
+      ]
+    },
+    "feedback-maintainer-followup-gaps": {
+      "ledger-and-boundaries.md": [
+        "docs/workflow-findings.md",
+        "session.txt"
+      ]
+    },
+    "feedback-maintainer-followup-answered": {
+      "ledger-and-boundaries.md": [
+        "docs/workflow-findings.md",
+        "session.txt"
+      ]
+    },
+    "feedback-maintainer-followup-reported": {
+      "ledger-and-boundaries.md": [
+        "docs/workflow-findings.md",
+        "session.txt"
+      ]
+    }
+  },
+  "requiredToolsBySkill": {
+    "drive-the-epic": [
+      "Read",
+      "Bash"
+    ],
+    "implement": [
+      "Read",
+      "Bash"
+    ],
+    "execute": [
+      "Read",
+      "Bash"
+    ],
+    "run-regression": [
+      "Read",
+      "Bash"
+    ],
+    "plan-the-work": [
+      "Read",
+      "Bash"
+    ],
+    "close-the-gaps": [
+      "Read",
+      "Bash"
+    ],
+    "go-deep": [
+      "Read",
+      "Bash"
+    ],
+    "define-test-strategy": [
+      "Read",
+      "Bash"
+    ],
+    "slice-the-epic": [
+      "Read",
+      "Bash"
+    ],
+    "shape-the-epic": [
+      "Read",
+      "Bash"
+    ],
+    "find-the-repos": [
+      "Read",
+      "Bash"
+    ],
+    "review-the-code": [
+      "Read",
+      "Bash"
+    ],
+    "assess-change": [
+      "Read",
+      "Bash"
+    ]
+  },
+  "extraTools": {
+    "execute-resume-inline": [
+      "Bash"
+    ],
+    "execute-stop-at-gate": [
+      "Bash"
+    ],
+    "plan-the-work-happy-path": [
+      "Bash"
+    ],
+    "plan-the-work-plan-collision": [
+      "Bash"
+    ]
+  },
+  "critical": [
+    "implement-autopilot-full",
+    "implement-lightweight-run",
+    "implement-workspace-approval",
+    "execute-resume-inline",
+    "execute-stop-at-gate",
+    "review-workflow-obligations",
+    "drive-the-epic-review-gate"
+  ],
+  "criticalReasons": {
+    "implement-autopilot-full": "Complete TDD workflow, independent review, final sync and packaging.",
+    "implement-lightweight-run": "Complete lightweight workflow without silently skipping its mandatory stages.",
+    "implement-workspace-approval": "Explicit repository and branch consent before workspace mutations.",
+    "execute-resume-inline": "Preserve saved execution progress and human pauses on resume.",
+    "execute-stop-at-gate": "A failed validation gate cannot be reported as success.",
+    "review-workflow-obligations": "Independent review retains mandatory checks and maintenance obligations.",
+    "drive-the-epic-review-gate": "Epic preparation cannot bypass required review."
+  },
+  "maintenance": {
+    "define-test-strategy-negative-control": {
+      "disposition": "investigate",
+      "reason": "The stale grader was replaced by exact baseline comparison. The live rerun correctly caught strategy/map writes and a guidance update before standalone confirmation.",
+      "owner": "maintainers",
+      "followUp": "Fix and reproduce the standalone missing-question-tool confirmation guard; do not weaken the unchanged-file assertion."
+    },
+    "drive-the-epic-uncertainty-resolved": {
+      "disposition": "investigate",
+      "reason": "Latest run added a confirmation requirement after a recorded product resolution; not established as a regression from the go-deep change.",
+      "owner": "maintainers",
+      "followUp": "Compare the latest accepted requirement and technical open items; reproduce before changing skill behavior."
+    },
+    "dts-multi-repo": {
+      "disposition": "investigate",
+      "reason": "Latest run skipped the required QA-repository context warning.",
+      "owner": "maintainers",
+      "followUp": "Reproduce the cross-repository inspection omission and add targeted evidence before a skill fix."
+    },
+    "execute-stop-at-gate": {
+      "disposition": "investigate",
+      "reason": "The failed-gate stop itself passed, but the attempted mode-choice log omitted its required options array. The critical baseline remains failed.",
+      "owner": "maintainers",
+      "followUp": "Repair execution decision logging and rerun this case; preserve the failed-gate stop coverage.",
+      "blocking": true
+    },
+    "implement-autopilot-full": {
+      "disposition": "repair",
+      "reason": "Workflow completed with clean review; stage-order grading hit the OS argument-size limit. Stdin transport is now locally tested, but live regrading is unresolved.",
+      "owner": "maintainers",
+      "followUp": "Validate the repaired stage-order judge against saved evidence after approved replay or a fresh authorized focused run. Do not count the original errored verdict as passed.",
+      "blocking": true
+    }
+  }
+}

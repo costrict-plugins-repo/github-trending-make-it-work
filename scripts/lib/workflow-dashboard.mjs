@@ -1,0 +1,187 @@
+// Shared presentation for the implement and drive-the-epic dashboards.
+export const escapeHtml = (value) => String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+
+export function renderWorkflowHeader({ workflow, title, logoBase64, badges, assessmentBadges = '', pluginVersion = null, usageSnapshot = null }) {
+  const usage = usageSnapshot;
+  const metadata = [`<span class="plugin-version">${pluginVersion ? `Plugin v${escapeHtml(pluginVersion)}` : 'Plugin version: Unknown'}</span>`];
+  if (usage?.context_percent != null) {
+    const capacity = usage.context_capacity ? ` of ${new Intl.NumberFormat('en', { notation: 'compact' }).format(usage.context_capacity)}` : '';
+    metadata.push(`Context: ${escapeHtml(`${usage.context_percent}%${capacity}`)}`);
+  }
+  if (usage?.estimated_cost_usd != null) metadata.push(`Estimated session cost: ${escapeHtml(`~$${usage.estimated_cost_usd.toFixed(2)}`)}`);
+  if (metadata.length > 1 && usage?.captured_at) metadata.push(`Captured at ${escapeHtml(usage.captured_at)}`);
+  return `<div class="header-row">
+  <a href="https://insideoutai.io/make-it-work" target="_blank" rel="noopener noreferrer">
+    <img src="data:image/png;base64,${escapeHtml(logoBase64)}" alt="InsideOut AI">
+  </a>
+  <h1>Make-It-Work: ${escapeHtml(workflow)}: <em>${escapeHtml(title)}</em></h1>
+  <div class="header-badges" aria-label="Workflow settings">${badges}${assessmentBadges ? `<span class="assessment-badge-row" role="group" aria-label="Change assessment">${assessmentBadges}</span>` : ''}</div>
+</div>
+<p class="workflow-metadata">${metadata.join(' · ')}</p>`;
+}
+
+export const WORKFLOW_STYLES = `
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; width: 100%; margin: 0; padding: 1.5rem 2rem; color: #1a1a1a; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  h2 { font-size: 1.1rem; margin: 1rem 0 0.5rem; }
+  .pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 1rem; font-size: 0.85rem; background: #eee; margin-right: 0.3rem; }
+  .pill[title] { cursor: help; border-bottom: 1px dotted #999; }
+  table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; }
+  th, td { text-align: left; border-bottom: 1px solid #ddd; padding: 0.3rem 0.5rem; font-size: 0.9rem; }
+  .step-duration { color: #999; font-size: 0.8em; font-style: italic; white-space: nowrap; }
+  .readiness-result p, .readiness-result ul { margin: 0.3rem 0; }
+  .readiness-result details { margin-top: 0.4rem; font-size: 0.85em; overflow-wrap: anywhere; }
+  .readiness-result summary { cursor: pointer; color: #596773; }
+  .repository-location { margin-top: 0.35rem; font-size: 0.85em; }
+  .repository-location summary { cursor: pointer; }
+  .repository-location p { margin: 0.4rem 0; max-width: 48ch; overflow-wrap: anywhere; }
+  .timestamp-warning { color: #b54708; font-size: 0.8em; font-style: italic; white-space: nowrap; }
+  .next-action { background: #fff6e0; border: 1px solid #e8d9a0; padding: 0.75rem 1rem; border-radius: 0.4rem; }
+  .pending-input { margin: 0.75rem 0; overflow-wrap: anywhere; }
+  .pending-qualifier { display: block; font-size: 0.8rem; margin-top: 0.2rem; color: #65582d; }
+  .pending-question { white-space: pre-wrap; }
+  .pending-since, .pending-reference { font-size: 0.8rem; }
+  .complete { background: #e6f4ea; border: 1px solid #b7dfc0; padding: 0.75rem 1rem; border-radius: 0.4rem; }
+  .session-timing { font-size: 0.75rem; color: #888; }
+  .assessment-low { color: #1e6231; background: #e6f4ea; }
+  .assessment-medium { color: #805400; background: #fff6e0; }
+  .assessment-high { color: #a61c00; background: #fce8e6; }
+  .assessment-neutral { color: #596773; background: #eee; }
+  .delivery-details { margin: 1.25rem 0; }
+  .delivery-updated, .delivery-records { font-size: 0.85rem; color: #596773; }
+
+  .workflow-metadata { color: #596773; font-size: 0.8rem; overflow-wrap: anywhere; margin: 0.3rem 0 0.8rem; }
+  .header-row { display: grid; grid-template-columns: auto minmax(0, 1fr) fit-content(40%); align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+  .header-row h1 { min-width: 0; overflow-wrap: anywhere; }
+  .header-row img { height: 56px; width: auto; flex-shrink: 0; display: block; }
+  .header-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.4rem; min-width: 0; max-width: 100%; }
+  .header-badges .pill { margin-right: 0; white-space: nowrap; }
+  .assessment-badge-row { display: flex; flex-wrap: wrap; flex-basis: 100%; justify-content: flex-end; gap: 0.4rem; }
+  .ticket-updates-allowed { color: #1e6231; background: #e6f4ea; }
+  .ticket-updates-off { color: #596773; }
+  .ticket-updates-unknown { color: #805400; background: #fff6e0; }
+  .mode-lightweight { color: #0b5394; background: #e8f1fb; }
+  .mode-tdd { color: #4a2a8a; background: #f0ebfa; }
+
+  .phase-timeline { display: flex; align-items: flex-start; width: 100%; margin: 1rem 0 0.75rem; overflow-x: auto; overflow-y: visible; padding-top: 1rem; padding-bottom: 0.5rem; }
+  .timeline-scroll-hint { display: none; }
+  .phase-step { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 90px; position: relative; }
+  .phase-step .line { position: absolute; top: 14px; left: -50%; width: 100%; height: 3px; background: #d0d0d0; z-index: 0; }
+  .phase-step:first-child .line { display: none; }
+  .phase-step .line.line-green { background: #4caf50; }
+  .phase-dot { width: 28px; height: 28px; border-radius: 50%; z-index: 1; border: 3px solid #d0d0d0; background: #fff; display: flex; align-items: center; justify-content: center; cursor: default; }
+  .phase-dot.passed { background: #4caf50; border-color: #4caf50; color: #fff; }
+  .phase-dot.failed { background: #e53935; border-color: #e53935; color: #fff; }
+  .phase-dot.current { width: 40px; height: 40px; margin-top: -6px; margin-bottom: -6px; background: #fff; border-color: #2196f3; box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.25); position: relative; }
+  .phase-dot.current.spinning::after {
+    content: ""; position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
+    border-radius: 50%; border: 3px solid transparent; border-top-color: #2196f3; border-right-color: #2196f3;
+    animation: phase-spin 0.9s linear infinite;
+  }
+  @keyframes phase-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .phase-dot.current.spinning::after { animation: none; }
+  }
+  .phase-step.optional-step .line { background: none; border-top: 3px dashed #8b969f; }
+  .phase-dot.optional { border: 2px dashed #778590; background: #fff; }
+  .phase-dot.skipped { border: 2px dashed #b4bcc3; background: repeating-linear-gradient(45deg, #fff, #fff 3px, #eef0f2 3px, #eef0f2 6px); cursor: help; }
+  .phase-label { margin-top: 0.4rem; font-size: 0.75rem; text-align: center; color: #555; max-width: 100px; }
+  .phase-skill { display: block; }
+  .optional-step .phase-label { color: #46535d; }
+  .phase-label.current-label { font-weight: 700; color: #1a1a1a; }
+  .phase-mode { margin-top: 0.1rem; font-size: 0.62rem; color: #777; text-align: center; }
+  .current-activity, .feedback-progress { width: 100%; margin: 0.75rem 0 1rem; padding: 0.65rem 0.85rem; background: #f0f7fe; border-left: 3px solid #2196f3; border-radius: 0.2rem; overflow-wrap: anywhere; }
+  .current-activity strong, .feedback-progress strong { font-size: 0.8rem; color: #096bae; }
+  .phase-activity { margin: 0.3rem 0 0; font-size: 0.85rem; line-height: 1.45; }
+  .activity-updated { margin: 0.4rem 0 0; font-size: 0.75rem; color: #596773; }
+  .current-activity.interrupted { background: #fff7e6; border-left-color: #e8a317; }
+  .current-activity.interrupted strong { color: #8a5a00; }
+  .activity-stale { margin: 0.4rem 0 0; font-size: 0.75rem; color: #8a5a00; }
+  .phase-duration { margin-top: 0.1rem; font-size: 0.65rem; color: #999; text-align: center; font-style: italic; }
+  .phase-status { margin-top: 0.15rem; font-size: 0.68rem; font-weight: 600; text-align: center; }
+  .phase-status.status-in-progress { color: #2196f3; }
+  .phase-status.status-paused, .phase-status.status-stopped { color: #e65100; }
+  .phase-status.status-complete { color: #2e7d32; }
+
+  .artifact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; max-width: 1100px; }
+  .artifact-tile { background: #f7f7f8; border: 1px solid #e2e2e4; border-radius: 0.4rem; padding: 0.6rem 0.75rem; min-width: 0; }
+  .artifact-tile .label { font-size: 0.75rem; color: #777; text-transform: uppercase; letter-spacing: 0.03em; }
+  .artifact-tile a { font-size: 0.85rem; word-break: break-all; }
+  .artifact-tile .none { font-size: 0.9rem; color: #999; }
+  .feedback-note { margin: 0.75rem 0 0; font-size: 0.9rem; line-height: 1.45; color: #46535d; }
+
+  @media (max-width: 900px) {
+    .header-row { grid-template-columns: auto minmax(0, 1fr); }
+    .header-badges { grid-column: 1 / -1; justify-content: flex-start; }
+    .assessment-badge-row { justify-content: flex-start; }
+    .phase-timeline { overflow-x: scroll; }
+    .phase-step { min-width: 80px; }
+    .artifact-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 100%; }
+    .timeline-scroll-hint { display: block; margin: 0 0 0.75rem; color: #596773; font-size: 0.8rem; }
+  }
+  @media (max-width: 540px) {
+    body { padding: 1rem 0.75rem; }
+    .header-badges .pill { white-space: normal; overflow-wrap: anywhere; }
+    .artifact-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+`;
+
+export const WORKFLOW_TIMESTAMPS = `<script>
+  (function () {
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function gmtLabel(date) {
+      var offsetMin = -date.getTimezoneOffset();
+      var sign = offsetMin >= 0 ? '+' : '-';
+      var abs = Math.abs(offsetMin);
+      return 'GMT' + sign + pad(Math.floor(abs / 60)) + ':' + pad(abs % 60);
+    }
+    document.querySelectorAll('.ts').forEach(function (cell) {
+      var raw = cell.getAttribute('data-ts');
+      if (!raw) return;
+      var d = new Date(raw);
+      if (isNaN(d.getTime())) { cell.textContent = raw; return; }
+      var datePart = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      var timePart = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+      cell.textContent = datePart + ', ' + timePart + ' (' + gmtLabel(d) + ')';
+      if (d.getTime() > Date.now()) {
+        var warning = document.createElement('span');
+        warning.className = 'timestamp-warning';
+        warning.textContent = ' (future relative to this device)';
+        warning.title = 'This entry is later than the device clock. Its captured timestamp may be invalid.';
+        cell.appendChild(warning);
+      }
+    });
+    function updateWaitingTimes() {
+      document.querySelectorAll('[data-wait-since]').forEach(function (cell) {
+        var since = Date.parse(cell.getAttribute('data-wait-since'));
+        var delta = Date.now() - since;
+        if (!isFinite(delta) || delta < 0) { cell.textContent = 'elapsed unavailable on this device'; return; }
+        var seconds = Math.floor(delta / 1000);
+        var minutes = Math.floor(seconds / 60);
+        var hours = Math.floor(minutes / 60);
+        cell.textContent = (hours ? hours + 'h ' + minutes % 60 + 'm' : minutes ? minutes + 'm ' + seconds % 60 + 's' : seconds + 's');
+      });
+    }
+    updateWaitingTimes();
+    if (document.querySelector('[data-wait-since]')) setInterval(updateWaitingTimes, 1000);
+    document.querySelectorAll('[data-stale-since]').forEach(function (cell) {
+      var hours = (Date.now() - Date.parse(cell.getAttribute('data-stale-since'))) / 3600000;
+      if (!isFinite(hours) || hours < Number(cell.getAttribute('data-stale-after-hours'))) return;
+      cell.textContent = 'No update for ' + Math.floor(hours) + 'h. The session may have ended; resume the run to continue it.';
+      cell.hidden = false;
+    });
+  })();
+// Refresh live elapsed values once per page load, using the existing HTML reload cadence.
+// No timer, polling, network request, or source-file mutation is introduced.
+document.querySelectorAll('[data-elapsed-start]').forEach(function (element) {
+  var start = Number(element.getAttribute('data-elapsed-start'));
+  var end = Math.max(Date.now(), Number(element.getAttribute('data-elapsed-min-end')));
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return;
+  var seconds = Math.floor((end - start) / 1000);
+  var days = Math.floor(seconds / 86400); seconds %= 86400;
+  var hours = Math.floor(seconds / 3600); seconds %= 3600;
+  var minutes = Math.floor(seconds / 60); seconds %= 60;
+  element.textContent = [days ? days + 'd' : '', hours ? hours + 'h' : '', minutes ? minutes + 'm' : '', seconds || (!days && !hours && !minutes) ? seconds + 's' : ''].filter(Boolean).join(' ');
+});
+</script>`;
